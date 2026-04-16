@@ -1,0 +1,14 @@
+# Temp files
+*.swp
+*.tmp
+*~
+.DS_Store
+# Large binary captures
+*.pcap
+*.pcapng
+# Secrets / credentials
+*credentials*
+*secrets*
+*.env
+# Personal notes
+notes/personal/
