@@ -1,10 +1,10 @@
 # PFE — Web Application Security Audit
 
 ## Project
-Final Year Engineering Project (PFE) — ESPTIMN / ADVANCIA IT SYSTEM.
+Final Year Engineering Project (PFE) — ITBS / ADVANCIA IT SYSTEM.
 Auditor: Mohamed Amine IDOUDI (PFE Intern).
 Professional supervisor: Ramzi Ben Slimene (Technical Director, ADVANCIA).
-Academic supervisor: Montassar Turki (Expert Professor, ESPTIMN).
+Academic supervisor: Montassar Turki (Expert Professor, ITBS).
 
 ## Current status
 Week 10 (16 April 2026). Recovery week after a productivity loss period (weeks 8–9).
@@ -52,8 +52,8 @@ Traceability chain per finding:
 - Git commit after every finding addition.
 
 ## Language rules
-- French: deliverables to Ramzi / ADVANCIA (weekly reports, findings reports, pentest reports).
-- English: deliverables to Turki / ESPTIMN (PFE report, chapters, sprint reports).
+- French: deliverables to ADVANCIA (weekly reports, findings reports, pentest reports).
+- English: deliverables to ITBS (PFE report, chapters, sprint reports).
 
 ## Tool policy
 Tool choice is made per task, with tradeoffs presented. No default tool is assumed.
@@ -74,9 +74,10 @@ Metasploit not in scope for the revised Part B.
 - Do NOT generate finding content without raw tool output that I observed.
 - Do NOT consult the /api/challenges endpoint of Juice Shop as a testing guide.
   WSTG walkthrough must be systematic, not answer-key guided.
+- Do NOT execute code or automate tests for exploitation phase.
 
 ## What Claude Code SHOULD do
-- Format raw tool output I captured into finding.md writeups.
+- Help Format raw tool output I captured into finding.md writeups.
 - Help design and scaffold the Part C tool code (W19–W23).
 - Help write CVSS vectors after I described the attack.
-- Draft report sections from real evidence I supply.
+- Help Draft report sections from real evidence I supply.
