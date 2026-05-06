@@ -1,83 +1,53 @@
-# PFE — Web Application Security Audit
+# CLAUDE.md — Project Context for AI Assistant
 
 ## Project
-Final Year Engineering Project (PFE) — ITBS / ADVANCIA IT SYSTEM.
-Auditor: Mohamed Amine IDOUDI (PFE Intern).
-Professional supervisor: Ramzi Ben Slimene (Technical Director, ADVANCIA).
-Academic supervisor: Montassar Turki (Expert Professor, ITBS).
+PFE Web Application Security Audit Framework
+Student: Mohamed Amine IDOUDI
+Organization: ADVANCIA IT SYSTEM, Tunis
+Supervisor: Ramzi Ben Slimene
+Period: February — August 2026
 
-## Current status
-Week 10 (16 April 2026). Recovery week after a productivity loss period (weeks 8–9).
-Scope revised in Master Execution Plan v5.0.
+## Phase A — COMPLETE
+Manual pentest against OWASP Juice Shop.
+12 findings documented. Report delivered May 2026.
+All exploitation evidence in: /WebApp_Pentesting/Exploitation/
+Report: rapport-pentest-ADVANCIA-v2.docx
 
-## Three-part scope (revised)
-- Part A — OWASP Top 10 pentest on Juice Shop. Deadline 29/05/2026.
-- Part B — Enterprise Defence Bypass STUDY (research-only, no lab build). Deadline 12/06/2026.
-- Part C — Containerised Security Assessment Tool (orchestrator of open-source
-  scanners, web UI, findings report generator). Deadline 31/07/2026.
+## Phase B — IN PROGRESS
+Building SecuriScan: containerized vulnerability scanner.
+Stack: React 19 + Python Flask + SQLite + Docker Compose.
+Location: /phase-b/
 
-## Target (Part A)
-OWASP Juice Shop (Node.js / Angular / SQLite) via Docker at http://192.168.56.20:3000.
-Attacker host (Kali): 192.168.56.10.
-Lab: isolated host-only network (VMnet1, 192.168.56.0/24).
+## Development Environment
+- Kali Linux 192.168.56.10 (attacker + development)
+- Ubuntu Server 192.168.56.20 (Juice Shop target)
+- Windows host: VS Code + Docker Desktop
+- GitHub: https://github.com/Mohamed-A-Idoudi/PFE-WebApp-Security-Audit.git
 
-## Project folder structure
-~/Penetration-testing/
-├── CLAUDE.md                      (this file)
-├── pre-engagement/                (RoE, CdC, MEP — kept on Windows host for editing)
-├── WebApp Pentesting/
-│   ├── Information-Gathering/     (recon evidence + findings)
-│   ├── Vulnerability-Assessment/
-│   ├── Exploitation/
-│   ├── Lateral-Movement/          (unused — Part B is research-only)
-│   └── Post-Exploitation/         (unused — Part B is research-only)
-├── Reporting/
-├── Results/
-└── pfe-public/                    (future GitHub public repo content)
+## Key Decisions Made
+- Frontend already built: React 19 + Vite in C:\Users\IDOUDI\Documents\SecuriScan
+- No Tailwind yet — all inline CSS currently
+- Backend not started yet
+- Docker not configured yet
+- Target submission: June 15-20 2026 (first session)
 
-## Methodology
-Hybrid: NIST SP 800-115 + OWASP WSTG v4.2 + Top 10:2025 + ASVS v4.0 + CVSS v3.1.
-Traceability chain per finding:
-  Risk (Top 10) → Test (WSTG) → Evidence (req/resp + screenshot) → Control (ASVS) → Severity (CVSS).
+## Phase B File Structure
+phase-b/
+├── frontend/     React app
+├── backend/      Flask API (app.py, models.py, requirements.txt)
+├── scanner/      engine.py (nmap + nikto wrappers)
+├── docs/         Architecture diagrams (.drawio + .png)
+└── docker-compose.yml
 
-## Evidence rules
-- Raw tool output: preserved in Information-Gathering/recon/<tool>/
-- AI-assisted summaries kept separate in Information-Gathering/recon/ai-assisted-summaries/
-- Confirmed findings: Information-Gathering/findings/FINDING-NNN/
-  Each finding contains:
-    - finding.md (writeup in audit format)
-    - command.txt (exact command run)
-    - evidence-output.txt (raw tool output extract)
-    - screenshot.png (if applicable)
-- Git commit after every finding addition.
+## Commands Reference
+# Start Juice Shop
+ssh adminjs@192.168.56.20 then docker start juiceshop
 
-## Language rules
-- French: deliverables to ADVANCIA (weekly reports, findings reports, pentest reports).
-- English: deliverables to ITBS (PFE report, chapters, sprint reports).
+# Kali internet (if lost after reboot)
+sudo nmcli device connect eth0
 
-## Tool policy
-Tool choice is made per task, with tradeoffs presented. No default tool is assumed.
-Current candidates include: Maltego (OSINT), nmap, whatweb, nikto, ffuf, Burp Suite
-Community, OWASP ZAP, sqlmap (validation mode), curl, httpie, Apache Bench, slowhttptest,
-nuclei. Part B research-only — no active exploitation tools needed.
-Metasploit not in scope for the revised Part B.
+# Frontend dev server
+cd C:\Users\IDOUDI\Documents\SecuriScan && npm run dev
 
-## Tone and output preferences
-- Be direct. Push back when I'm wrong. No yes-man.
-- Explain WHY before HOW for technical decisions.
-- One task at a time.
-- Concise by default.
-- No emojis unless I use them first.
-
-## What Claude Code should NOT do
-- Do NOT run recon or testing autonomously. I drive tool selection and execution.
-- Do NOT generate finding content without raw tool output that I observed.
-- Do NOT consult the /api/challenges endpoint of Juice Shop as a testing guide.
-  WSTG walkthrough must be systematic, not answer-key guided.
-- Do NOT execute code or automate tests for exploitation phase.
-
-## What Claude Code SHOULD do
-- Help Format raw tool output I captured into finding.md writeups.
-- Help design and scaffold the Part C tool code (W19–W23).
-- Help write CVSS vectors after I described the attack.
-- Help Draft report sections from real evidence I supply.
+# Backend (once built)
+cd phase-b/backend && python app.py
