@@ -1,37 +1,16 @@
-# SecuriScan — Automated Vulnerability Scanner
-**Phase B — PFE ADVANCIA IT SYSTEM 2026**
+# React + Vite
 
-## Overview
-SecuriScan is a containerized web application vulnerability scanner
-that automates OWASP Top 10:2025 detection and generates professional
-audit reports.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Architecture
-- Frontend: React 19 + Vite (port 5173 dev / 80 prod)
-- Backend: Python Flask REST API (port 5000)
-- Scanner: nmap + nikto + custom header checks
-- Database: SQLite via SQLAlchemy
-- Reports: WeasyPrint PDF generation
-- Deploy: Docker Compose
+Currently, two official plugins are available:
 
-## Quick Start
-```bash
-docker compose up --build
-# Open http://localhost:3000
-```
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## API Endpoints
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | /api/scan | Start a new scan |
-| GET | /api/status/:id | Poll scan progress |
-| GET | /api/results/:id | Get findings |
-| GET | /api/report/:id | Download PDF report |
+## React Compiler
 
-## Project Structure
-phase-b/
-├── frontend/          # React application
-├── backend/           # Flask REST API
-├── scanner/           # Scanning engine
-├── docs/              # Architecture diagrams
-└── docker-compose.yml
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.

@@ -1,0 +1,62 @@
+services:
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - securiscan_net
+
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://securiscan:password@db:5432/securiscan
+      - SCANNER_URL=http://scanner:5001
+    depends_on:
+      - db
+      - scanner
+    networks:
+      - securiscan_net
+
+  scanner:
+    build: ./scanner
+    environment:
+      - DATABASE_URL=postgresql://securiscan:password@db:5432/securiscan
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    depends_on:
+      - db
+    networks:
+      - securiscan_net
+    extra_hosts:
+      - "juiceshop:192.168.56.20"
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=securiscan
+      - POSTGRES_USER=securiscan
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_HOST_AUTH_METHOD=md5
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - securiscan_net
+
+volumes:
+  postgres_data:
+
+networks:
+  securiscan_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
