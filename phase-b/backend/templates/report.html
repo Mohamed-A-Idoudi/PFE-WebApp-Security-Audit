@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Security Report — {{ scan.target_name }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; color: #1a1a2e; background: #fff; font-size: 13px; }
+
+  /* ── Cover ── */
+  .cover { page-break-after: always; min-height: 297mm; display: flex; flex-direction: column; }
+  .cover-header { background: #0f172a; padding: 40px 50px; display: flex; justify-content: space-between; align-items: center; }
+  .cover-logo-text { font-size: 22px; font-weight: 900; color: #3b82f6; letter-spacing: 1px; }
+  .cover-logo-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .cover-body { flex: 1; padding: 60px 50px 40px; }
+  .cover-tag { display: inline-block; background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; padding: 6px 16px; border-radius: 4px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 32px; }
+  .cover-title { font-size: 32px; font-weight: 900; color: #0f172a; line-height: 1.2; margin-bottom: 12px; }
+  .cover-target { font-size: 15px; color: #3b82f6; font-family: monospace; margin-bottom: 40px; word-break: break-all; }
+  .cover-divider { height: 4px; background: #3b82f6; border-radius: 2px; margin-bottom: 40px; }
+  .cover-meta-grid { display: flex; gap: 32px; margin-bottom: 48px; flex-wrap: wrap; }
+  .cover-meta-item label { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+  .cover-meta-item span { font-size: 13px; color: #1e293b; font-weight: 600; }
+
+  /* ── Severity boxes ── */
+  .sev-grid { display: flex; gap: 12px; margin-bottom: 32px; }
+  .sev-box { flex: 1; padding: 16px 12px; border-radius: 8px; text-align: center; }
+  .sev-box.critical { background: #fef2f2; border: 2px solid #ef4444; }
+  .sev-box.high     { background: #fff7ed; border: 2px solid #f97316; }
+  .sev-box.medium   { background: #fefce8; border: 2px solid #eab308; }
+  .sev-box.low      { background: #f0fdf4; border: 2px solid #22c55e; }
+  .sev-box .count   { font-size: 36px; font-weight: 900; line-height: 1; }
+  .sev-box.critical .count { color: #ef4444; }
+  .sev-box.high .count     { color: #f97316; }
+  .sev-box.medium .count   { color: #eab308; }
+  .sev-box.low .count      { color: #22c55e; }
+  .sev-box .label   { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; color: #64748b; }
+
+  .cover-footer { padding: 20px 50px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; }
+
+  /* ── Pages ── */
+  .page { padding: 40px 50px; page-break-before: always; }
+  .page-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #e2e8f0; margin-bottom: 24px; }
+  .page-header-left { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+  .page-header-right { font-size: 10px; color: #3b82f6; font-weight: 700; }
+
+  .section-title { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 6px; padding-bottom: 8px; border-bottom: 3px solid #3b82f6; }
+  .section-sub { font-size: 12px; color: #64748b; margin-bottom: 20px; }
+
+  /* ── Info table ── */
+  .info-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+  .info-table td { padding: 9px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+  .info-table tr:nth-child(even) { background: #f8fafc; }
+  .info-table td:first-child { color: #64748b; font-weight: 600; width: 180px; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+  .info-table td:last-child { color: #1e293b; font-weight: 500; }
+
+  /* ── Finding cards ── */
+  .finding { margin-bottom: 16px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; page-break-inside: avoid; break-inside: avoid; }
+  .finding-header { padding: 14px 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .finding-header.critical { background: #fef2f2; border-left: 5px solid #ef4444; }
+  .finding-header.high     { background: #fff7ed; border-left: 5px solid #f97316; }
+  .finding-header.medium   { background: #fefce8; border-left: 5px solid #eab308; }
+  .finding-header.low      { background: #f0fdf4; border-left: 5px solid #22c55e; }
+
+  /* Fix: title stays on one line, no word breaking across columns */
+  .finding-title {
+    font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px;
+    word-break: break-word; overflow-wrap: break-word; max-width: 420px;
+  }
+  .finding-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+  .badge-critical { background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; }
+  .badge-high     { background: #fff7ed; color: #f97316; border: 1px solid #fed7aa; }
+  .badge-medium   { background: #fefce8; color: #92700a; border: 1px solid #fde68a; }
+  .badge-low      { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+  .badge-owasp    { background: #eff6ff; color: #3b82f6; border: 1px solid #bfdbfe; }
+  .badge-tool     { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+  .cvss-score { font-size: 26px; font-weight: 900; min-width: 52px; text-align: right; line-height: 1; }
+  .cvss-score.critical { color: #ef4444; }
+  .cvss-score.high     { color: #f97316; }
+  .cvss-score.medium   { color: #eab308; }
+  .cvss-score.low      { color: #22c55e; }
+  .cvss-label { font-size: 9px; color: #94a3b8; text-align: right; margin-top: 2px; }
+  .finding-body { padding: 14px 18px; background: #fff; }
+  .finding-section { margin-bottom: 10px; }
+  .finding-section-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #94a3b8; margin-bottom: 4px; }
+  .finding-section-content { font-size: 12px; color: #334155; line-height: 1.6; word-break: break-word; }
+  .finding-endpoint { font-family: monospace; font-size: 10px; background: #f8fafc; padding: 5px 8px; border-radius: 4px; color: #1e40af; word-break: break-all; border: 1px solid #e2e8f0; }
+
+  /* Fix: evidence — no clickable links, proper newlines, capped height */
+  .finding-evidence {
+    font-family: monospace; font-size: 10px; background: #0f172a; color: #94a3b8;
+    padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all;
+    max-height: 120px; overflow: hidden; margin-top: 4px;
+  }
+  .finding-evidence a { color: #94a3b8 !important; text-decoration: none !important; pointer-events: none; }
+
+  .finding-remediation { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #166534; line-height: 1.6; }
+  .cvss-vector { font-size: 9px; color: #94a3b8; margin-top: 6px; font-family: monospace; word-break: break-all; }
+
+  /* ── Critical alert box ── */
+  .alert-critical { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 14px 18px; margin-top: 16px; }
+  .alert-critical-title { font-weight: 700; color: #ef4444; margin-bottom: 6px; font-size: 13px; }
+  .alert-critical-body { font-size: 12px; color: #7f1d1d; line-height: 1.6; }
+
+  /* ── Conclusion ── */
+  .priority-box { padding: 14px 18px; border-radius: 8px; margin-bottom: 12px; }
+  .priority-1 { background: #fef2f2; border-left: 4px solid #ef4444; }
+  .priority-2 { background: #fff7ed; border-left: 4px solid #f97316; }
+  .priority-3 { background: #fefce8; border-left: 4px solid #eab308; }
+  .priority-4 { background: #f0fdf4; border-left: 4px solid #22c55e; }
+  .priority-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 4px; }
+  .priority-text { font-size: 12px; color: #1e293b; line-height: 1.5; }
+
+  .disclaimer { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-top: 32px; }
+  .disclaimer-title { font-size: 10px; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; }
+  .disclaimer-text { font-size: 11px; color: #475569; line-height: 1.7; }
+
+  .report-footer { margin-top: 32px; text-align: center; padding-top: 20px; border-top: 1px solid #e2e8f0; }
+  .report-footer-brand { font-size: 13px; font-weight: 700; color: #3b82f6; margin-bottom: 4px; }
+  .report-footer-sub { font-size: 10px; color: #94a3b8; line-height: 1.6; }
+
+  @page { margin: 0; size: A4; }
+</style>
+</head>
+<body>
+
+<!-- ══ COVER ══════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-header">
+    <div>
+      <div class="cover-logo-text">ADVANCIA IT SYSTEM</div>
+      <div class="cover-logo-sub">Information Systems Security</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:10px;color:#64748b;">Generated by</div>
+      <div style="font-size:15px;font-weight:700;color:#3b82f6;">SecuriScan</div>
+      <div style="font-size:10px;color:#475569;">OWASP Top 10 Assessment Platform</div>
+    </div>
+  </div>
+
+  <div class="cover-body">
+    <div class="cover-tag">CONFIDENTIAL — INTERNAL USE</div>
+    <div class="cover-title">Web Application<br>Security Audit Report</div>
+    <div class="cover-target">{{ scan.target_url }}</div>
+    <div class="cover-divider"></div>
+
+    <div class="cover-meta-grid">
+      <div class="cover-meta-item">
+        <label>Audit Date</label>
+        <span>{{ generated_at }}</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Scan Duration</label>
+        <span>{{ duration or 'N/A' }}</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Reference</label>
+        <span>SEC-{{ report_id|upper }}</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Methodology</label>
+        <span>OWASP Top 10:2025</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Scoring</label>
+        <span>CVSS v3.1</span>
+      </div>
+      <div class="cover-meta-item">
+        <label>Total Findings</label>
+        <span>{{ total }} finding(s)</span>
+      </div>
+    </div>
+
+    <div class="sev-grid">
+      <div class="sev-box critical">
+        <div class="count">{{ sev_counts.Critical }}</div>
+        <div class="label">Critical</div>
+      </div>
+      <div class="sev-box high">
+        <div class="count">{{ sev_counts.High }}</div>
+        <div class="label">High</div>
+      </div>
+      <div class="sev-box medium">
+        <div class="count">{{ sev_counts.Medium }}</div>
+        <div class="label">Medium</div>
+      </div>
+      <div class="sev-box low">
+        <div class="count">{{ sev_counts.Low }}</div>
+        <div class="label">Low</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;color:#475569;line-height:1.8;">
+      This report presents the results of the automated security assessment performed on
+      <strong>{{ scan.target_name }}</strong> by the SecuriScan platform.
+      The analysis covers the 10 OWASP Top 10:2025 vulnerability categories
+      with CVSS v3.1 scoring for each identified finding.
+    </div>
+  </div>
+
+  <div class="cover-footer">
+    <span>ADVANCIA IT SYSTEM — Confidential Document</span>
+    <span>SecuriScan v1.0 — PFE 2026</span>
+    <span>{{ generated_at }}</span>
+  </div>
+</div>
+
+<!-- ══ PAGE 2 — SCAN INFO ════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-left">ADVANCIA IT SYSTEM — Security Report</div>
+    <div class="page-header-right">SEC-{{ report_id|upper }}</div>
+  </div>
+
+  <div class="section-title">1. General Information</div>
+  <div class="section-sub">Audit mission details and analysed environment</div>
+
+  <table class="info-table">
+    <tr><td>Target</td><td>{{ scan.target_url }}</td></tr>
+    <tr><td>Label</td><td>{{ scan.target_name }}</td></tr>
+    <tr><td>Scan Start</td><td>{{ scan.created_at.strftime('%d/%m/%Y at %H:%M UTC') }}</td></tr>
+    <tr><td>Scan End</td><td>{{ scan.completed_at.strftime('%d/%m/%Y at %H:%M UTC') if scan.completed_at else 'N/A' }}</td></tr>
+    <tr><td>Total Duration</td><td>{{ duration or 'N/A' }}</td></tr>
+    <tr><td>Scan Type</td><td>{{ scan.scan_type|upper }}</td></tr>
+    <tr><td>Total Findings</td><td><strong>{{ total }}</strong></td></tr>
+    <tr><td>Report Reference</td><td>SEC-{{ report_id|upper }}</td></tr>
+  </table>
+
+  <div class="section-title" style="margin-top:28px;">2. Executed Analysis Pipeline</div>
+  <div class="section-sub">7 evaluation phases covering the full OWASP Top 10:2025</div>
+
+  <table class="info-table">
+    <tr><td>Phase 0</td><td>Connectivity check — urllib (fail-fast if target unreachable)</td></tr>
+    <tr><td>Phase 1</td><td>HTTP header, cookie and TLS configuration analysis</td></tr>
+    <tr><td>Phase 2</td><td>Network port scan — nmap -sV with banner verification</td></tr>
+    <tr><td>Phase 3</td><td>Sensitive directory exposure and CORS policy check</td></tr>
+    <tr><td>Phase 4</td><td>Authentication tests — endpoint discovery and rate limiting</td></tr>
+    <tr><td>Phase 5</td><td>Web server scan — Nikto v2.6.0 (6700+ checks)</td></tr>
+    <tr><td>Phase 6</td><td>Vulnerability templates — Nuclei (9000+ CVEs and misconfigs)</td></tr>
+    <tr><td>Phase 7</td><td>SQL injection detection — SQLmap (detection mode only)</td></tr>
+  </table>
+
+  <div class="section-title" style="margin-top:28px;">3. Executive Summary</div>
+  <div class="section-sub">Overview of identified risks, classified by severity</div>
+
+  <div class="sev-grid">
+    <div class="sev-box critical"><div class="count">{{ sev_counts.Critical }}</div><div class="label">Critical</div></div>
+    <div class="sev-box high"><div class="count">{{ sev_counts.High }}</div><div class="label">High</div></div>
+    <div class="sev-box medium"><div class="count">{{ sev_counts.Medium }}</div><div class="label">Medium</div></div>
+    <div class="sev-box low"><div class="count">{{ sev_counts.Low }}</div><div class="label">Low</div></div>
+  </div>
+
+  {% if sev_counts.Critical > 0 %}
+  <div class="alert-critical">
+    <div class="alert-critical-title">⚠ Critical Vulnerabilities Detected</div>
+    <div class="alert-critical-body">
+      {{ sev_counts.Critical }} critical vulnerability(ies) identified on <strong>{{ scan.target_name }}</strong>.
+      These vulnerabilities present an immediate risk and must be fixed with absolute priority
+      before any public exposure of the system.
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ══ PAGE 3+ — FINDINGS ════════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-left">ADVANCIA IT SYSTEM — Security Report</div>
+    <div class="page-header-right">SEC-{{ report_id|upper }}</div>
+  </div>
+
+  <div class="section-title">4. Detected Vulnerabilities</div>
+  <div class="section-sub">{{ total }} finding(s) — sorted by descending CVSS score</div>
+
+  {% for f in findings %}
+  <div class="finding">
+    <div class="finding-header {{ f.severity|lower }}">
+      <div style="flex:1;min-width:0;">
+        <!-- Fix: truncate long nikto titles cleanly -->
+        <div class="finding-title">
+          {%- set clean_title = f.title | replace('Nikto: ', '') -%}
+          {%- if clean_title | length > 90 -%}
+            {{ clean_title[:90] }}...
+          {%- else -%}
+            {{ clean_title }}
+          {%- endif -%}
+        </div>
+        <div class="finding-badges">
+          <span class="badge badge-{{ f.severity|lower }}">{{ f.severity|upper }}</span>
+          {% if f.owasp_id %}
+          <span class="badge badge-owasp">{{ f.owasp_id }} — {{ f.owasp_label }}</span>
+          {% endif %}
+          <span class="badge badge-tool">{{ f.tool_used }}</span>
+        </div>
+      </div>
+      <div style="flex-shrink:0;text-align:right;">
+        <div class="cvss-score {{ f.severity|lower }}">{{ "%.1f"|format(f.cvss_score or 0) }}</div>
+        <div class="cvss-label">CVSS v3.1</div>
+      </div>
+    </div>
+    <div class="finding-body">
+      <div class="finding-section">
+        <div class="finding-section-label">Description</div>
+        <div class="finding-section-content">{{ f.description }}</div>
+      </div>
+      <div class="finding-section">
+        <div class="finding-section-label">Affected Endpoint</div>
+        <div class="finding-endpoint">{{ f.endpoint }}</div>
+      </div>
+      {% if f.evidence %}
+      <div class="finding-section">
+        <div class="finding-section-label">Technical Evidence</div>
+        <!-- Fix: replace literal \n with real newlines, suppress clickable URLs -->
+        <div class="finding-evidence">{{ f.evidence[:500] | replace('\\n', '
+') }}</div>
+      </div>
+      {% endif %}
+      <div class="finding-section" style="margin-bottom:0;">
+        <div class="finding-section-label">Recommendation</div>
+        <div class="finding-remediation">{{ f.remediation }}</div>
+      </div>
+      {% if f.cvss_vector %}
+      <div class="cvss-vector">{{ f.cvss_vector }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ══ LAST PAGE — CONCLUSION ════════════════════════════════════════════ -->
+<div class="page">
+  <div class="page-header">
+    <div class="page-header-left">ADVANCIA IT SYSTEM — Security Report</div>
+    <div class="page-header-right">SEC-{{ report_id|upper }}</div>
+  </div>
+
+  <div class="section-title">5. Priority Remediation Plan</div>
+  <div class="section-sub">Recommended actions following the audit, sorted by urgency</div>
+
+  <div class="priority-box priority-1">
+    <div class="priority-label">Priority 1 — Immediate (within 72 hours)</div>
+    <div class="priority-text">
+      Fix all <strong>Critical</strong> severity vulnerabilities (CVSS ≥ 9.0).
+      These flaws allow complete system compromise without user interaction.
+    </div>
+  </div>
+
+  <div class="priority-box priority-2">
+    <div class="priority-label">Priority 2 — Short term (within 30 days)</div>
+    <div class="priority-text">
+      Address <strong>High</strong> severity vulnerabilities (CVSS 7.0–8.9).
+      These represent a significant exploitation risk.
+    </div>
+  </div>
+
+  <div class="priority-box priority-3">
+    <div class="priority-label">Priority 3 — Medium term (within 90 days)</div>
+    <div class="priority-text">
+      Plan remediation of <strong>Medium</strong> vulnerabilities (CVSS 4.0–6.9).
+      General security posture hardening.
+    </div>
+  </div>
+
+  <div class="priority-box priority-4">
+    <div class="priority-label">Priority 4 — Continuous monitoring</div>
+    <div class="priority-text">
+      Run a new SecuriScan assessment after remediation to validate fixes.
+      Integrate periodic scans into the development cycle.
+    </div>
+  </div>
+
+  <div class="disclaimer">
+    <div class="disclaimer-title">Legal Disclaimer</div>
+    <div class="disclaimer-text">
+      This report was automatically generated by SecuriScan as part of an authorised security audit.
+      Tests were performed in a non-destructive manner (detection mode only, no exploitation).
+      This document is strictly confidential and intended exclusively for ADVANCIA IT SYSTEM.
+      Any unauthorised reproduction or distribution is prohibited.
+      Results reflect the system state at the time of the scan and may evolve.
+    </div>
+  </div>
+
+  <div class="report-footer">
+    <div class="report-footer-brand">SecuriScan</div>
+    <div class="report-footer-sub">
+      OWASP Web Application Security Assessment Platform<br>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
