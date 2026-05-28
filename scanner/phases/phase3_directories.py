@@ -107,6 +107,134 @@ def _verify_content(url: str, path: str) -> tuple:
     except Exception:
         return False, ""
 
+# High-value sensitive paths — probed directly on every target
+TARGETED_PATHS = [
+    "/.env", "/.env.backup", "/.env.local", "/.env.production",
+    "/.git/HEAD", "/.git/config", "/.gitignore",
+    "/backup.zip", "/backup.tar.gz", "/backup.sql", "/db.sql", "/dump.sql",
+    "/phpinfo.php", "/info.php", "/test.php",
+    "/admin", "/admin/", "/administration", "/administrator",
+    "/wp-admin/", "/wp-login.php", "/xmlrpc.php",
+    "/server-status", "/server-info",
+    "/swagger.json", "/swagger-ui.html", "/api-docs", "/api/swagger.json",
+    "/api/openapi.json", "/openapi.yaml", "/graphql", "/graphiql",
+    "/actuator", "/actuator/env", "/actuator/health", "/actuator/mappings",
+    "/actuator/beans", "/actuator/dump",
+    "/.aws/credentials", "/.ssh/id_rsa", "/.ssh/authorized_keys",
+    "/ftp/", "/encryptionkeys/",
+    "/config.php", "/config.js", "/config.json", "/settings.php",
+    "/robots.txt", "/sitemap.xml", "/.htaccess", "/.htpasswd",
+    "/crossdomain.xml", "/clientaccesspolicy.xml",
+    "/console", "/h2-console", "/adminer.php", "/phpmyadmin/",
+    "/.DS_Store", "/Thumbs.db",
+    "/api/v1/users", "/api/users", "/api/admin",
+    "/rest/user/whoami", "/rest/admin/application-configuration",
+]
+
+
+def _probe_sensitive_paths(url: str, scan_id: str) -> int:
+    """Directly probe high-value sensitive paths — fast, no timeout risk."""
+    base      = url.rstrip("/")
+    confirmed = 0
+
+    # Get baseline response size for SPA detection
+    try:
+        req      = urllib.request.Request(
+            f"{base}/this_path_does_not_exist_xyz123",
+            headers={"User-Agent": random_ua()}
+        )
+        resp     = urllib.request.urlopen(req, timeout=5)
+        spa_size = len(resp.read())
+    except Exception:
+        spa_size = 0
+
+    for path in TARGETED_PATHS:
+        target_url = f"{base}{path}"
+        try:
+            req  = urllib.request.Request(
+                target_url,
+                headers={"User-Agent": random_ua()}
+            )
+            resp = urllib.request.urlopen(req, timeout=8)
+            status = resp.status
+
+            if status not in (200, 201, 301, 302, 403):
+                continue
+
+            content = resp.read(50000).decode("utf-8", errors="ignore")
+
+            # Skip SPA shells returning same-size response
+            if spa_size > 0 and abs(len(content) - spa_size) < 50:
+                continue
+
+            genuine, snippet = _verify_content(target_url, path)
+            if not genuine and status == 200:
+                continue
+
+            # 403 on admin paths is itself a finding — path exists
+            if status == 403 and any(p in path for p in ["/admin", "/wp-admin", "/actuator"]):
+                genuine  = True
+                snippet  = f"HTTP 403 — path exists but access denied"
+
+            if not genuine:
+                continue
+
+            severity, cvss, vector, owasp_id, owasp_label = _classify_path(path)
+
+            title = f"Exposed Path: {path}"
+            if ".env" in path:       title = "Environment File Exposed (.env)"
+            elif ".git" in path:     title = "Git Repository Exposed"
+            elif "backup" in path or ".sql" in path: title = "Backup File Exposed"
+            elif "phpinfo" in path:  title = "PHP Info Page Exposed"
+            elif "swagger" in path or "openapi" in path or "api-docs" in path:
+                title = "API Documentation Publicly Exposed"
+            elif "actuator" in path: title = "Spring Boot Actuator Exposed"
+            elif "admin" in path:    title = "Admin Panel Exposed"
+            elif ".aws" in path or ".ssh" in path:
+                title = "Cloud/SSH Credentials File Exposed"
+                severity, cvss = "Critical", 9.8
+
+            save_finding(
+                scan_id=scan_id, title=title,
+                owasp_id=owasp_id, owasp_label=owasp_label,
+                severity=severity, cvss_score=cvss, cvss_vector=vector,
+                description=f"{path} is accessible without authentication (HTTP {status}).",
+                endpoint=target_url,
+                evidence=f"HTTP {status}\nContent preview:\n{snippet[:300]}",
+                remediation=(
+                    "Restrict access via web server configuration. "
+                    "Remove sensitive files from web root. "
+                    "Require authentication for admin paths."
+                ),
+                tool_used="dir-probe",
+                confidence="confirmed",
+            )
+            confirmed += 1
+            print(f"[SCANNER] ✓ Sensitive path confirmed: {path} (HTTP {status})")
+
+        except urllib.error.HTTPError as e:
+            # 403 on admin paths = path exists
+            if e.code == 403 and any(p in path for p in ["/admin", "/wp-admin", "/actuator", "/phpmyadmin"]):
+                severity, cvss, vector, oid, olabel = _classify_path(path)
+                save_finding(
+                    scan_id=scan_id,
+                    title=f"Admin Path Exists — Access Restricted: {path}",
+                    owasp_id=oid, owasp_label=olabel,
+                    severity="Medium", cvss_score=5.3,
+                    cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+                    description=f"{path} returned HTTP 403 — the path exists but is currently restricted.",
+                    endpoint=target_url,
+                    evidence=f"HTTP 403 response to unauthenticated request",
+                    remediation="Verify access controls are correctly enforced. Monitor for bypass attempts.",
+                    tool_used="dir-probe",
+                    confidence="probable",
+                )
+                confirmed += 1
+                print(f"[SCANNER] ✓ Admin path exists (403): {path}")
+        except Exception:
+            pass
+
+    return confirmed
 
 def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -> list:
     base        = url.rstrip("/")
@@ -178,10 +306,20 @@ def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
 
     wordlist = _get_wordlist()
 
-    if wordlist:
-        # Use ffuf with SecLists
-        hits = _run_ffuf(url, wordlist, scan_id, request_delay)
-        confirmed = 0
+    # Always run targeted sensitive path probing first — fast and reliable
+    print("[SCANNER] Phase 3: Probing sensitive paths")
+    confirmed = _probe_sensitive_paths(url, scan_id)
+    print(f"[SCANNER] Phase 3 (targeted): {confirmed} confirmed findings")
+
+    # Run ffuf wordlist only for local/lab targets — external targets timeout
+    parsed   = urllib.parse.urlparse(url)
+    is_local = (parsed.port in (3000, 8080, 8000) or
+                (parsed.hostname or "").replace(".", "").isdigit() or
+                (parsed.hostname or "") in ("localhost", "juiceshop"))
+
+    if wordlist and is_local:
+        hits      = _run_ffuf(url, wordlist, scan_id, request_delay)
+        confirmed2 = 0
 
         for hit in hits:
             path       = hit["path"]
@@ -189,45 +327,25 @@ def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
             status     = hit["status"]
 
             genuine, snippet = _verify_content(target_url, path)
+
             if not genuine:
                 continue
-
+            
             severity, cvss, vector, owasp_id, owasp_label = _classify_path(path)
 
-            title = f"Exposed Path: {path}"
-            if any(p in path.lower() for p in ["admin", "administration"]):
-                title = "Admin Panel Exposed Without Authentication"
-            elif ".env" in path:
-                title = "Environment File Exposed"
-            elif ".git" in path:
-                title = "Git Repository Exposed"
-            elif "backup" in path:
-                title = "Backup Directory Exposed"
-            elif "phpinfo" in path or "info.php" in path:
-                title = "PHP Info Page Exposed"
-            elif "swagger" in path or "api-docs" in path:
-                title = "API Documentation Publicly Exposed"
-            elif "actuator" in path:
-                title = "Spring Boot Actuator Exposed"
-
             save_finding(
-                scan_id=scan_id, title=title,
+                scan_id=scan_id, title=f"Exposed Path: {path}",
                 owasp_id=owasp_id, owasp_label=owasp_label,
                 severity=severity, cvss_score=cvss, cvss_vector=vector,
                 description=f"{path} accessible without authentication (HTTP {status}).",
                 endpoint=target_url,
-                evidence=f"HTTP {status} confirmed\nContent:\n{snippet[:300]}",
+                evidence=f"HTTP {status}\nContent:\n{snippet[:300]}",
                 remediation="Restrict access. Require authentication. Remove if not needed.",
-                tool_used="ffuf",
-                confidence="confirmed",
+                tool_used="ffuf", confidence="confirmed",
             )
-            confirmed += 1
-            print(f"[SCANNER] ✓ Confirmed: {title} ({path})")
-
-            if request_delay > 0:
-                time.sleep(request_delay)
-
-        print(f"[SCANNER] Phase 3 (ffuf): {confirmed} confirmed findings")
+            confirmed2 += 1
+            print(f"[SCANNER] ✓ ffuf confirmed: {path}")
+        print(f"[SCANNER] Phase 3 (ffuf): {confirmed2} additional findings")
 
     else:
         print("[SCANNER] SecLists/ffuf not available — using fallback path list")
