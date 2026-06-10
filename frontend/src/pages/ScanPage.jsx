@@ -25,7 +25,7 @@ function activePhase(p) { for(let i=PHASES.length-1;i>=0;i--) if(p>=PHASES[i].pc
 export function ScanPage({ token, setPage, setActiveScan }) {
   const [url,      setUrl]      = useState("");
   const [name,     setName]     = useState("");
-  const [scanType, setScanType] = useState("full");
+  const [scanType] = useState("full");
   const [speed,    setSpeed]    = useState("normal");
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
@@ -91,7 +91,7 @@ export function ScanPage({ token, setPage, setActiveScan }) {
             </div>
             <div style={{textAlign:"right"}}>
               <div className="ss-label ss-mb-2">Mode</div>
-              <div style={{fontSize:"12px",color:"var(--dim)"}}>{scanType} · {speed}</div>
+              <div style={{fontSize:"12px",color:"var(--dim)"}}>{speed}</div>
             </div>
           </div>
           <div className="ss-card">
@@ -151,15 +151,7 @@ export function ScanPage({ token, setPage, setActiveScan }) {
 
           <div className="ss-card">
             <div className="ss-h3" style={{marginBottom:"14px"}}>Configuration</div>
-            <div className="ss-grid-2">
-              <div className="ss-field">
-                <label className="ss-label">Scan Type</label>
-                <select className="ss-input" value={scanType} onChange={e=>setScanType(e.target.value)}>
-                  <option value="full">Full — All phases</option>
-                  <option value="quick">Quick — Headers + TLS</option>
-                </select>
-                <div style={{fontSize:"11px",color:"var(--fade)",marginTop:"2px"}}>{scanType==="full"?"25–45 min complete audit":"2–3 min header check"}</div>
-              </div>
+            <div>
               <div className="ss-field">
                 <label className="ss-label">Scan Speed</label>
                 <select className="ss-input" value={speed} onChange={e=>setSpeed(e.target.value)}>

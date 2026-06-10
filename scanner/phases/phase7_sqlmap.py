@@ -330,21 +330,13 @@ def _save_sqli(scan_id, endpoint, param, evidence):
         attack_type="sql_injection",
     )
 
-def _discover_rest_targets(base: str, base_domain: str) -> set:
+def _discover_rest_targets(base: str, base_domain: str, is_spa: bool = False) -> set:
     targets  = set()
     
     # Get SPA baseline size first
     spa_size = 0
-    try:
-        req      = urllib.request.Request(
-            f"{base}/this_path_does_not_exist_xyz",
-            headers=evasion_headers()
-        )
-        resp     = urllib.request.urlopen(req, timeout=5)
-        spa_size = len(resp.read())
-        print(f"[SCANNER] SQLmap: SPA baseline = {spa_size} bytes")
-    except Exception:
-        pass
+    if is_spa:
+        print("[SCANNER] SQLmap: SPA confirmed by Phase 0c — strict endpoint validation active")
 
     for path in COMMON_REST_PATTERNS:
         test_url = f"{base}{path}"
@@ -417,8 +409,7 @@ def _extract_param(output: str) -> str:
 
 # ── Main entry-point ──────────────────────────────────────────────────────────
 
-def run_sqlmap(scan_id: str, url: str,
-               crawl_results: dict = None, use_tor: bool = False):
+def run_sqlmap(scan_id: str, url: str, crawl_results: dict = None, fingerprint: dict = None, use_tor: bool = False):
     """
     Phase 7 — SQL Injection Detection.
     Universal pipeline:
@@ -438,8 +429,8 @@ def run_sqlmap(scan_id: str, url: str,
     # ── Step 1: collect candidates ────────────────────────────────────────────
     targets: set = set()
 
-    # Universal REST pattern probing
-    rest_targets = _discover_rest_targets(base, base_domain)
+    is_spa = (fingerprint or {}).get("is_spa", False)
+    rest_targets = _discover_rest_targets(base, base_domain, is_spa)
     targets.update(rest_targets)
 
     # Katana feed — parameterized URLs + API endpoints

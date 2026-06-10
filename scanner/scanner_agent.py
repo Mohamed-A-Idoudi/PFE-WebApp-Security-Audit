@@ -150,14 +150,14 @@ def scan():
         # Phase 3 — Directory exposure + CORS
         REQUEST_DELAY = 1.5 if scan_speed == "stealth" else 0.0
         print("[SCANNER] Phase 3: Directory exposure + CORS")
-        try:    run_directory_checks(scan_id, url, REQUEST_DELAY)
+        try:    run_directory_checks(scan_id, url, REQUEST_DELAY, fingerprint)
         except Exception as e: print(f"[SCANNER] Phase 3 error: {e}")
         update_scan_status(scan_id, "running", 46)
         phase_sleep(scan_speed)
 
         # Phase 3b — XSS
         print("[SCANNER] Phase 3b: XSS detection")
-        try:    run_xss_checks(scan_id, url, crawl_results)
+        try:    run_xss_checks(scan_id, url, crawl_results, fingerprint)
         except Exception as e: print(f"[SCANNER] Phase 3b error: {e}")
         update_scan_status(scan_id, "running", 54)
         phase_sleep(scan_speed)
@@ -185,7 +185,7 @@ def scan():
 
         # Phase 7 — SQLmap
         print("[SCANNER] Phase 7: SQLmap")
-        try:    run_sqlmap(scan_id, url, crawl_results, use_tor=use_tor)
+        try:    run_sqlmap(scan_id, url, crawl_results, fingerprint, use_tor=use_tor)
         except Exception as e: print(f"[SCANNER] Phase 7 error: {e}")
         update_scan_status(scan_id, "running", 96)
 

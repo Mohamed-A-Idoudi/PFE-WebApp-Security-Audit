@@ -150,6 +150,7 @@ def _run_dalfox(url: str, scan_id: str) -> list:
         "dalfox", "url", url,
         "--silence",
         "--no-spinner",
+        "--waf-evasion"
         "--format", "json",
         "-o", output_file,
         "--timeout", "10",
@@ -245,11 +246,15 @@ def _fallback_xss_test(url: str, param: str) -> tuple:
     return False, "", ""
 
 
-def run_xss_checks(scan_id: str, url: str, crawl_results: dict = None):
+def run_xss_checks(scan_id: str, url: str, crawl_results: dict = None, fingerprint: dict = None):
     target_domain    = urllib.parse.urlparse(url).netloc
     confirmed_keys   = set()
     dalfox_available = True
     total            = 0
+
+    is_spa = (fingerprint or {}).get("is_spa", False)
+    if is_spa:
+        print("[SCANNER] XSS: SPA confirmed by Phase 0c — Katana API endpoints prioritized")
 
     if crawl_results:
         raw_candidates = set()

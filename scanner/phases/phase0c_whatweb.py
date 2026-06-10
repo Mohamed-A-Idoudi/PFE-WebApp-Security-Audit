@@ -8,6 +8,7 @@ import json
 import subprocess
 import re
 from .utils import random_ua, evasion_headers, random_sleep
+import urllib.request
 
 def run_whatweb(scan_id: str, url: str) -> dict:
     """
@@ -132,7 +133,7 @@ def run_whatweb(scan_id: str, url: str) -> dict:
         import os
         if os.path.exists(output_file):
             os.remove(output_file)
-
+    fingerprint["is_spa"] = _detect_spa(url)
     return fingerprint
 
 
@@ -158,6 +159,42 @@ def _summarize(fp: dict) -> str:
     if fp["framework"]:parts.append(f"FW={fp['framework']}")
     return " | ".join(parts) if parts else "unknown"
 
+def _detect_spa(url: str) -> bool:
+    try:
+        req1  = urllib.request.Request(url, headers={"User-Agent": random_ua()})
+        resp1 = urllib.request.urlopen(req1, timeout=10)
+        html  = resp1.read(100000).decode("utf-8", errors="ignore")
+        base_size = len(html)
+
+        req2 = urllib.request.Request(
+            url.rstrip("/") + "/this_path_does_not_exist_xyz_404_check",
+            headers={"User-Agent": random_ua()}
+        )
+        try:
+            resp2 = urllib.request.urlopen(req2, timeout=8)
+            not_found_size = len(resp2.read())
+        except Exception:
+            not_found_size = 0
+
+        if base_size > 0 and not_found_size > 0:
+            ratio = abs(base_size - not_found_size) / base_size
+            if ratio < 0.05:
+                print("[SCANNER] SPA detected — 404 same size as homepage")
+                return True
+
+        spa_signatures = [
+            "<app-root", "<router-outlet", "ng-version",
+            "__webpack_require__", "webpackJsonp",
+            "data-reactroot", "_next/static",
+            "window.__nuxt__", "__vue_ssr_context__",
+        ]
+        if any(sig.lower() in html.lower() for sig in spa_signatures):
+            print("[SCANNER] SPA detected — framework signature found")
+            return True
+
+        return False
+    except Exception:
+        return False
 
 def _header_fingerprint(url: str) -> dict:
     """

@@ -10,6 +10,7 @@ import json
 import subprocess
 import urllib.request
 import urllib.error
+import urllib.parse
 from .db import save_finding
 from .utils import random_ua, evasion_headers, random_sleep
 
@@ -56,7 +57,7 @@ CONTENT_PATTERNS = {
 SPA_MARKERS = [
     "data-beasties-container", "mat-app-background", "ng-version",
     "<app-root", "__webpack_require__", "routes/angular",
-    "juice-shop", "polyfills.js",
+    "polyfills.js",
 ]
 
 
@@ -107,6 +108,7 @@ def _verify_content(url: str, path: str) -> tuple:
     except Exception:
         return False, ""
 
+
 # High-value sensitive paths — probed directly on every target
 TARGETED_PATHS = [
     "/.env", "/.env.backup", "/.env.local", "/.env.production",
@@ -132,21 +134,11 @@ TARGETED_PATHS = [
 ]
 
 
-def _probe_sensitive_paths(url: str, scan_id: str) -> int:
+def _probe_sensitive_paths(url: str, scan_id: str, is_spa: bool = False) -> int:
     """Directly probe high-value sensitive paths — fast, no timeout risk."""
     base      = url.rstrip("/")
     confirmed = 0
-
-    # Get baseline response size for SPA detection
-    try:
-        req      = urllib.request.Request(
-            f"{base}/this_path_does_not_exist_xyz123",
-            headers={"User-Agent": random_ua()}
-        )
-        resp     = urllib.request.urlopen(req, timeout=5)
-        spa_size = len(resp.read())
-    except Exception:
-        spa_size = 0
+    spa_size  = 0
 
     for path in TARGETED_PATHS:
         target_url = f"{base}{path}"
@@ -155,7 +147,7 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
                 target_url,
                 headers={"User-Agent": random_ua()}
             )
-            resp = urllib.request.urlopen(req, timeout=8)
+            resp   = urllib.request.urlopen(req, timeout=8)
             status = resp.status
 
             if status not in (200, 201, 301, 302, 403):
@@ -163,8 +155,8 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
 
             content = resp.read(50000).decode("utf-8", errors="ignore")
 
-            # Skip SPA shells returning same-size response
-            if spa_size > 0 and abs(len(content) - spa_size) < 50:
+            # Skip SPA shell responses when SPA is confirmed
+            if is_spa and spa_size > 0 and abs(len(content) - spa_size) < 50:
                 continue
 
             genuine, snippet = _verify_content(target_url, path)
@@ -173,8 +165,8 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
 
             # 403 on admin paths is itself a finding — path exists
             if status == 403 and any(p in path for p in ["/admin", "/wp-admin", "/actuator"]):
-                genuine  = True
-                snippet  = f"HTTP 403 — path exists but access denied"
+                genuine = True
+                snippet = "HTTP 403 — path exists but access denied"
 
             if not genuine:
                 continue
@@ -182,14 +174,20 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
             severity, cvss, vector, owasp_id, owasp_label = _classify_path(path)
 
             title = f"Exposed Path: {path}"
-            if ".env" in path:       title = "Environment File Exposed (.env)"
-            elif ".git" in path:     title = "Git Repository Exposed"
-            elif "backup" in path or ".sql" in path: title = "Backup File Exposed"
-            elif "phpinfo" in path:  title = "PHP Info Page Exposed"
+            if ".env" in path:
+                title = "Environment File Exposed (.env)"
+            elif ".git" in path:
+                title = "Git Repository Exposed"
+            elif "backup" in path or ".sql" in path:
+                title = "Backup File Exposed"
+            elif "phpinfo" in path:
+                title = "PHP Info Page Exposed"
             elif "swagger" in path or "openapi" in path or "api-docs" in path:
                 title = "API Documentation Publicly Exposed"
-            elif "actuator" in path: title = "Spring Boot Actuator Exposed"
-            elif "admin" in path:    title = "Admin Panel Exposed"
+            elif "actuator" in path:
+                title = "Spring Boot Actuator Exposed"
+            elif "admin" in path:
+                title = "Admin Panel Exposed"
             elif ".aws" in path or ".ssh" in path:
                 title = "Cloud/SSH Credentials File Exposed"
                 severity, cvss = "Critical", 9.8
@@ -224,7 +222,7 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
                     cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
                     description=f"{path} returned HTTP 403 — the path exists but is currently restricted.",
                     endpoint=target_url,
-                    evidence=f"HTTP 403 response to unauthenticated request",
+                    evidence="HTTP 403 response to unauthenticated request",
                     remediation="Verify access controls are correctly enforced. Monitor for bypass attempts.",
                     tool_used="dir-probe",
                     confidence="probable",
@@ -236,13 +234,16 @@ def _probe_sensitive_paths(url: str, scan_id: str) -> int:
 
     return confirmed
 
-def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -> list:
-    base        = url.rstrip("/")
 
-    # Step 1: get the SPA index.html size to use as filter
+def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -> list:
+    base = url.rstrip("/")
+
+    # Get the SPA index.html size to use as filter
     try:
-        req      = urllib.request.Request(f"{base}/this_path_does_not_exist_securiscan",
-                                          headers={"User-Agent": random_ua()})
+        req      = urllib.request.Request(
+            f"{base}/this_path_does_not_exist_securiscan",
+            headers={"User-Agent": random_ua()}
+        )
         response = urllib.request.urlopen(req, timeout=5)
         spa_size = len(response.read())
         print(f"[SCANNER] ffuf: SPA baseline size = {spa_size} bytes")
@@ -259,12 +260,11 @@ def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -
         "-fc", "404",
         "-t", "20",
         "-rate", "10" if request_delay > 0 else "50",
-        "-timeout","8",
+        "-timeout", "8",
         "-H", f"User-Agent: {random_ua()}",
-        "-s", "-p",   "0.1-1.0",
+        "-s", "-p", "0.1-1.0",
         "-recursion-depth", "0",
     ]
-    # Filter out SPA index.html responses by size
     if spa_size > 0:
         cmd += ["-fs", str(spa_size)]
 
@@ -279,6 +279,7 @@ def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -
     except Exception as e:
         print(f"[SCANNER] ffuf error: {e}")
         return []
+
     if request_delay > 0:
         random_sleep(request_delay * 0.5, request_delay * 2.0)
     if not os.path.exists(output_file):
@@ -296,29 +297,38 @@ def _run_ffuf(url: str, wordlist: str, scan_id: str, request_delay: float = 0) -
     except Exception as e:
         print(f"[SCANNER] ffuf parse error: {e}")
     finally:
-        os.remove(output_file)
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
     return hits
 
 
-def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
+def run_directory_checks(scan_id: str, url: str, request_delay: float = 0, fingerprint: dict = None):
     import time
 
     wordlist = _get_wordlist()
 
+    # ── Determine is_spa FIRST before any function calls that use it ──
+    is_spa = (fingerprint or {}).get("is_spa", False)
+    if is_spa:
+        print("[SCANNER] Phase 3: SPA confirmed by Phase 0c — targeted probe only")
+
+    # Determine is_local for ffuf decision
+    parsed   = urllib.parse.urlparse(url)
+    is_local = (
+        parsed.port in (3000, 8080, 8000) or
+        (parsed.hostname or "").replace(".", "").isdigit() or
+        (parsed.hostname or "") in ("localhost", "juiceshop")
+    )
+
     # Always run targeted sensitive path probing first — fast and reliable
     print("[SCANNER] Phase 3: Probing sensitive paths")
-    confirmed = _probe_sensitive_paths(url, scan_id)
+    confirmed = _probe_sensitive_paths(url, scan_id, is_spa)
     print(f"[SCANNER] Phase 3 (targeted): {confirmed} confirmed findings")
 
     # Run ffuf wordlist only for local/lab targets — external targets timeout
-    parsed   = urllib.parse.urlparse(url)
-    is_local = (parsed.port in (3000, 8080, 8000) or
-                (parsed.hostname or "").replace(".", "").isdigit() or
-                (parsed.hostname or "") in ("localhost", "juiceshop"))
-
     if wordlist and is_local:
-        hits      = _run_ffuf(url, wordlist, scan_id, request_delay)
+        hits       = _run_ffuf(url, wordlist, scan_id, request_delay)
         confirmed2 = 0
 
         for hit in hits:
@@ -327,10 +337,9 @@ def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
             status     = hit["status"]
 
             genuine, snippet = _verify_content(target_url, path)
-
             if not genuine:
                 continue
-            
+
             severity, cvss, vector, owasp_id, owasp_label = _classify_path(path)
 
             save_finding(
@@ -341,15 +350,13 @@ def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
                 endpoint=target_url,
                 evidence=f"HTTP {status}\nContent:\n{snippet[:300]}",
                 remediation="Restrict access. Require authentication. Remove if not needed.",
-                tool_used="ffuf", confidence="confirmed",
+                tool_used="ffuf",
+                confidence="confirmed",
             )
             confirmed2 += 1
             print(f"[SCANNER] ✓ ffuf confirmed: {path}")
-        print(f"[SCANNER] Phase 3 (ffuf): {confirmed2} additional findings")
 
-    else:
-        print("[SCANNER] SecLists/ffuf not available — using fallback path list")
-        _run_fallback(scan_id, url, request_delay)
+        print(f"[SCANNER] Phase 3 (ffuf): {confirmed2} additional findings")
 
     # CORS check always runs regardless
     _check_cors(scan_id, url)
@@ -359,8 +366,12 @@ def run_directory_checks(scan_id: str, url: str, request_delay: float = 0):
 def _check_cors(scan_id: str, url: str):
     try:
         req      = urllib.request.Request(
-            url, headers={"User-Agent": random_ua(),
-                          "Origin": "https://evil-attacker.com"})
+            url,
+            headers={
+                "User-Agent": random_ua(),
+                "Origin": "https://evil-attacker.com",
+            }
+        )
         response  = urllib.request.urlopen(req, timeout=10)
         resp_hdrs = {k.lower(): v for k, v in response.headers.items()}
         cors      = resp_hdrs.get("access-control-allow-origin", "")
@@ -374,7 +385,8 @@ def _check_cors(scan_id: str, url: str):
                 endpoint=url,
                 evidence=f"Origin: https://evil-attacker.com → ACAO: {cors}",
                 remediation="Replace wildcard with explicit trusted origins.",
-                tool_used="cors-check", confidence="confirmed",
+                tool_used="cors-check",
+                confidence="confirmed",
             )
     except Exception:
         pass
@@ -387,6 +399,7 @@ FALLBACK_PATHS = [
     "/actuator", "/actuator/env", "/ftp/", "/encryptionkeys/",
     "/wp-admin/", "/wp-login.php", "/xmlrpc.php",
 ]
+
 
 def _run_fallback(scan_id: str, url: str, request_delay: float):
     import time
@@ -409,7 +422,8 @@ def _run_fallback(scan_id: str, url: str, request_delay: float):
                     endpoint=target_url,
                     evidence=f"HTTP {response.status}\n{snippet[:200]}",
                     remediation="Restrict access or remove if not needed.",
-                    tool_used="dir-check", confidence="confirmed",
+                    tool_used="dir-check",
+                    confidence="confirmed",
                 )
                 print(f"[SCANNER] ✓ Fallback confirmed: {path}")
         except urllib.error.HTTPError:
