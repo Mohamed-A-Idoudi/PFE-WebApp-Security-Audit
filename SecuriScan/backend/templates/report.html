@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Security Audit Report — {{ scan.target_url }}</title>
+<style>
+@page {
+  size: A4;
+  margin: 20mm 18mm 22mm 18mm;
+  @bottom-left {
+    content: "ADVANCIA IT SYSTEM  ·  Confidential  ·  Authorized recipients only";
+    font-size: 7.5pt; color: #6b7280;
+    font-family: Helvetica, Arial, sans-serif;
+  }
+  @bottom-right {
+    content: "Page " counter(page) " / " counter(pages);
+    font-size: 7.5pt; color: #6b7280;
+    font-family: Helvetica, Arial, sans-serif;
+  }
+}
+@page :first { @bottom-left{content:''} @bottom-right{content:''} }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 9.5pt; line-height: 1.55; color: #1f2937; background: #fff; }
+
+.cover { page-break-after: always; }
+.cover-bar-top { height: 5pt; background: #1e3a5f; }
+.cover-body { padding: 28mm 0 0; }
+.cover-co    { font-size: 9pt; font-weight: 700; letter-spacing: 2.5pt; color: #2563eb; text-transform: uppercase; margin-bottom: 4mm; }
+.cover-title { font-size: 28pt; font-weight: 700; color: #111827; line-height: 1.1; margin-bottom: 2mm; }
+.cover-sub   { font-size: 12.5pt; color: #6b7280; margin-bottom: 10mm; }
+.cover-rule  { width: 44pt; height: 3pt; background: #2563eb; margin-bottom: 9mm; }
+
+.cover-meta { width: 100%; border-collapse: collapse; margin-bottom: 14mm; }
+.cover-meta td { padding: 4.5pt 0; border-bottom: 0.5pt solid #e5e7eb; font-size: 9pt; vertical-align: top; }
+.cover-meta td:first-child { width: 38mm; font-weight: 600; color: #374151; text-transform: uppercase; font-size: 8pt; letter-spacing: 0.3pt; }
+.cover-meta td:last-child  { font-family: 'Courier New', monospace; font-size: 8.5pt; color: #1f2937; }
+
+.cover-class { padding: 7pt 10pt; background: #fef3c7; border: 1pt solid #f59e0b; border-radius: 3pt; font-size: 7.5pt; color: #92400e; margin-top: 12mm; }
+.cover-bar-bot { height: 2.5pt; background: #e5e7eb; margin-top: 10mm; }
+
+h1.s { font-size: 15pt; font-weight: 700; color: #111827; margin-bottom: 5mm; padding-bottom: 3pt; border-bottom: 2pt solid #e5e7eb; }
+h1.s .n { color: #2563eb; margin-right: 5pt; }
+h2.ss { font-size: 10.5pt; font-weight: 700; color: #1f2937; margin: 5mm 0 3mm; }
+
+.info-box { padding: 8pt 10pt; background: #f8fafc; border: 1pt solid #e2e8f0; border-radius: 3pt; margin-bottom: 4mm; font-size: 9pt; color: #374151; line-height: 1.6; }
+.crit-notice { padding: 7pt 10pt; background: #fef2f2; border: 1pt solid #fecaca; border-left: 4pt solid #ef4444; border-radius: 0 3pt 3pt 0; font-size: 8.5pt; color: #991b1b; font-weight: 600; margin-top: 4mm; }
+
+/* Stat table */
+.stat-table { display: table; width: 100%; border-collapse: separate; border-spacing: 4pt; margin-bottom: 5mm; }
+.stat-row-wrap { display: table-row; }
+.stat-cell { display: table-cell; width: 25%; padding: 9pt 11pt; border-radius: 3pt; vertical-align: top; border: 1pt solid; }
+.stat-cell.cr { background: #fef2f2; border-color: #fecaca; }
+.stat-cell.hi { background: #fff7ed; border-color: #fed7aa; }
+.stat-cell.me { background: #fffbeb; border-color: #fde68a; }
+.stat-cell.lo { background: #f0fdf4; border-color: #bbf7d0; }
+.stat-n { font-size: 26pt; font-weight: 700; line-height: 1; }
+.stat-l { font-size: 7pt; font-weight: 700; letter-spacing: 1pt; text-transform: uppercase; margin-top: 2pt; }
+.stat-cell.cr .stat-n, .stat-cell.cr .stat-l { color: #ef4444; }
+.stat-cell.hi .stat-n, .stat-cell.hi .stat-l { color: #f97316; }
+.stat-cell.me .stat-n, .stat-cell.me .stat-l { color: #f59e0b; }
+.stat-cell.lo .stat-n, .stat-cell.lo .stat-l { color: #16a34a; }
+
+/* Risk bars */
+.rbar-table { display: table; width: 100%; border-collapse: collapse; margin-bottom: 3.5pt; }
+.rbar-row   { display: table-row; }
+.rbar-lbl   { display: table-cell; width: 52pt; font-size: 8pt; font-weight: 600; text-align: right; padding: 2.5pt 6pt 2.5pt 0; vertical-align: middle; }
+.rbar-trk-c { display: table-cell; vertical-align: middle; padding: 2.5pt 6pt 2.5pt 0; }
+.rbar-trk   { height: 9pt; background: #f3f4f6; border-radius: 2pt; overflow: hidden; width: 100%; }
+.rbar-fill  { height: 9pt; border-radius: 2pt; display: block; }
+.rbar-cnt   { display: table-cell; width: 20pt; font-size: 8pt; font-weight: 700; vertical-align: middle; padding: 2.5pt 0; }
+.rbar-lbl.cr,.rbar-cnt.cr { color: #ef4444; }
+.rbar-lbl.hi,.rbar-cnt.hi { color: #f97316; }
+.rbar-lbl.me,.rbar-cnt.me { color: #f59e0b; }
+.rbar-lbl.lo,.rbar-cnt.lo { color: #16a34a; }
+.rbar-fill.cr { background: #ef4444; }
+.rbar-fill.hi { background: #f97316; }
+.rbar-fill.me { background: #f59e0b; }
+.rbar-fill.lo { background: #22c55e; }
+
+/* Tables */
+.tbl { width: 100%; border-collapse: collapse; margin-bottom: 5mm; font-size: 8.5pt; }
+.tbl th { background: #1e3a5f; color: #fff; padding: 5pt 8pt; text-align: left; font-size: 7.5pt; letter-spacing: 0.5pt; text-transform: uppercase; }
+.tbl td { padding: 4.5pt 8pt; border-bottom: 0.5pt solid #e5e7eb; vertical-align: middle; }
+.tbl tr:nth-child(even) td { background: #f9fafb; }
+
+/* Badges */
+.bdg { display: inline-block; padding: 1.5pt 5pt; border-radius: 2pt; font-size: 7pt; font-weight: 700; letter-spacing: 0.5pt; text-transform: uppercase; border: 0.5pt solid transparent; }
+.bdg-cr { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.bdg-hi { background: #fff7ed; color: #ea580c; border-color: #fed7aa; }
+.bdg-me { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.bdg-lo { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.owtag  { font-family: 'Courier New', monospace; font-size: 7.5pt; font-weight: 700; color: #4338ca; background: #eef2ff; padding: 1pt 4pt; border-radius: 2pt; border: 0.5pt solid #c7d2fe; }
+
+/* Finding card */
+.finding { page-break-inside: avoid; margin-bottom: 6mm; border: 1pt solid #e5e7eb; border-radius: 4pt; overflow: hidden; }
+.finding-hdr-table { display: table; width: 100%; border-collapse: collapse; background: #f9fafb; border-bottom: 1pt solid #e5e7eb; }
+.finding-hdr-row { display: table-row; }
+.finding-sev-bar-cell { display: table-cell; width: 5pt; vertical-align: top; }
+.finding-sev-bar { width: 5pt; min-height: 30pt; }
+.finding-sev-bar.cr { background: #ef4444; }
+.finding-sev-bar.hi { background: #f97316; }
+.finding-sev-bar.me { background: #f59e0b; }
+.finding-sev-bar.lo { background: #22c55e; }
+.finding-hdr-content { display: table-cell; padding: 6pt 9pt; vertical-align: middle; }
+.finding-title { font-size: 9.5pt; font-weight: 700; color: #111827; }
+.finding-hdr-right { display: table-cell; padding: 6pt 9pt; text-align: right; vertical-align: middle; white-space: nowrap; }
+.finding-cvss { font-size: 13pt; font-weight: 700; }
+.finding-cvss.cr { color: #ef4444; }
+.finding-cvss.hi { color: #f97316; }
+.finding-cvss.me { color: #f59e0b; }
+.finding-cvss.lo { color: #16a34a; }
+.finding-body { padding: 7pt 9pt 7pt 14pt; }
+.meta-table { width: 100%; border-collapse: collapse; margin-bottom: 4pt; }
+.meta-table td { padding: 2pt 0; border-bottom: 0.5pt solid #f3f4f6; font-size: 8.5pt; vertical-align: top; }
+.meta-key { width: 58pt; font-size: 7.5pt; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3pt; }
+.field-ttl { font-size: 7.5pt; font-weight: 700; letter-spacing: 0.8pt; text-transform: uppercase; color: #6b7280; margin: 5pt 0 2.5pt; }
+.evidence  { background: #0f172a; color: #a8c4e0; font-family: 'Courier New', monospace; font-size: 7.5pt; line-height: 1.5; padding: 7pt 9pt; border-radius: 3pt; white-space: pre-wrap; word-break: break-all; }
+.remed     { background: #f0fdf4; border-left: 3pt solid #22c55e; padding: 5pt 9pt; border-radius: 0 3pt 3pt 0; font-size: 8.5pt; color: #166534; line-height: 1.5; margin-top: 3pt; }
+
+/* Method */
+.mth-row { display: flex; border-bottom: 0.5pt solid #e5e7eb; padding: 3.5pt 0; font-size: 8.5pt; }
+.mth-key { width: 82pt; font-weight: 700; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #374151; flex-shrink: 0; }
+
+.pb { page-break-before: always; }
+.nb { page-break-inside: avoid; }
+a, a:link, a:visited, a:hover {
+  color: inherit !important;
+  text-decoration: none !important;
+}
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-bar-top"></div>
+  <div class="cover-body">
+    <div class="cover-co">ADVANCIA IT SYSTEM</div>
+    <div class="cover-title">Web Application<br>Security Audit Report</div>
+    <div class="cover-sub">Automated Penetration Test — Findings &amp; Recommendations</div>
+    <div class="cover-rule"></div>
+
+    <table class="cover-meta">
+      <tr><td>Target</td>    <td>{{ scan.target_url }}</td></tr>
+      <tr><td>Scan Name</td> <td>{{ scan.target_name or scan.target_url }}</td></tr>
+      <tr><td>Scan ID</td>   <td>{{ scan.id }}</td></tr>
+      <tr><td>Scan Type</td> <td>{{ scan.scan_type | upper }} — {{ scan.scan_speed | upper }} mode</td></tr>
+      <tr><td>Started</td>   <td>{{ scan.created_at.strftime('%d %b %Y, %H:%M UTC') if scan.created_at else '—' }}</td></tr>
+      <tr><td>Completed</td> <td>{{ scan.completed_at.strftime('%d %b %Y, %H:%M UTC') if scan.completed_at else '—' }}</td></tr>
+      <tr><td>Duration</td>  <td>{{ duration or '—' }}</td></tr>
+      <tr><td>Findings</td>  <td>{{ total }}</td></tr>
+      <tr><td>Scanner</td>   <td>SecuriScan v1.0 · Kali Linux · OWASP Top 10:2025</td></tr>
+      <tr><td>Generated</td> <td>{{ generated_at }}</td></tr>
+    </table>
+
+    <div class="cover-class">
+      &#9888; CONFIDENTIAL — Sensitive security information. Authorized recipients only.
+      Do not share, copy, or store on unsecured systems.
+    </div>
+  </div>
+  <div class="cover-bar-bot"></div>
+</div>
+
+<!-- 1 EXECUTIVE SUMMARY -->
+<div style="page-break-after:always;">
+  <h1 class="s"><span class="n">1</span>Executive Summary</h1>
+
+  <p class="info-box">
+    SecuriScan performed an automated web application security assessment against
+    <strong>{{ scan.target_url }}</strong> ({{ scan.scan_type }} scan, {{ scan.scan_speed }} mode).
+    The audit followed NIST SP 800-115, OWASP WSTG v4.2, and OWASP Top 10:2025.
+    All findings are scored with CVSS v3.1.
+  </p>
+
+  <div class="stat-table">
+    <div class="stat-row-wrap">
+      <div class="stat-cell cr"><div class="stat-n">{{ sev_counts.Critical }}</div><div class="stat-l">Critical</div></div>
+      <div class="stat-cell hi"><div class="stat-n">{{ sev_counts.High }}</div><div class="stat-l">High</div></div>
+      <div class="stat-cell me"><div class="stat-n">{{ sev_counts.Medium }}</div><div class="stat-l">Medium</div></div>
+      <div class="stat-cell lo"><div class="stat-n">{{ sev_counts.Low }}</div><div class="stat-l">Low</div></div>
+    </div>
+  </div>
+
+  <h2 class="ss">Risk Distribution</h2>
+  {% set mx = [sev_counts.Critical, sev_counts.High, sev_counts.Medium, sev_counts.Low] | max %}
+  {% for sev, cls in [("Critical","cr"),("High","hi"),("Medium","me"),("Low","lo")] %}
+  <div class="rbar-table">
+    <div class="rbar-row">
+      <div class="rbar-lbl {{ cls }}">{{ sev }}</div>
+      <div class="rbar-trk-c"><div class="rbar-trk"><span class="rbar-fill {{ cls }}" style="width:{{ ((sev_counts[sev] / (mx if mx > 0 else 1)) * 100)|round }}%;"></span></div></div>
+      <div class="rbar-cnt {{ cls }}">{{ sev_counts[sev] }}</div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if sev_counts.Critical > 0 %}
+  <div class="crit-notice">
+    &#9888; {{ sev_counts.Critical }} critical finding{{ "s" if sev_counts.Critical != 1 }} require immediate remediation.
+  </div>
+  {% endif %}
+</div>
+
+<!-- 2 SCOPE & METHODOLOGY -->
+<div class="nb" style="margin-bottom:7mm;">
+  <h1 class="s"><span class="n">2</span>Scope &amp; Methodology</h1>
+  <h2 class="ss">Scope</h2>
+  <div class="info-box"><strong>Target:</strong> {{ scan.target_url }}</div>
+  <h2 class="ss">Standards Applied</h2>
+  {% for k,v in [("Framework","NIST SP 800-115"),("Testing Guide","OWASP WSTG v4.2"),("Taxonomy","OWASP Top 10:2025"),("Scoring","CVSS v3.1 (FIRST)"),("Verification","ASVS v4.0")] %}
+  <div class="mth-row"><div class="mth-key">{{ k }}</div><div>{{ v }}</div></div>
+  {% endfor %}
+  <h2 class="ss">Tools</h2>
+  <div class="info-box" style="font-size:8.5pt;">nmap · nikto · ffuf + SecLists · dalfox · sqlmap · nuclei · testssl.sh · Katana · WhatWeb · theHarvester · Hydra</div>
+</div>
+
+<!-- 3 FINDINGS SUMMARY -->
+<div class="pb">
+  <h1 class="s"><span class="n">3</span>Findings Summary</h1>
+  <table class="tbl">
+    <thead><tr><th>#</th><th>Title</th><th>Severity</th><th>CVSS</th><th>OWASP</th><th>Tool</th><th>Confidence</th></tr></thead>
+    <tbody>
+      {% set cls_map = {"Critical":"cr","High":"hi","Medium":"me","Low":"lo"} %}
+      {% for f in findings %}
+      {% set cls = cls_map.get(f.severity, "lo") %}
+      <tr>
+        <td style="color:#9ca3af;font-size:8pt;">{{ loop.index }}</td>
+        <td style="font-weight:500;font-size:8.5pt;">{{ f.title[:52] }}</td>
+        <td><span class="bdg bdg-{{ cls }}">{{ f.severity }}</span></td>
+        <td style="font-weight:700;font-size:9pt;color:{% if f.cvss_score >= 9.0 %}#ef4444{% elif f.cvss_score >= 7.0 %}#f97316{% elif f.cvss_score >= 4.0 %}#f59e0b{% else %}#16a34a{% endif %};">
+          {{ "%.1f" % f.cvss_score }}</td>
+        <td><span class="owtag">{{ f.owasp_id or '—' }}</span></td>
+        <td style="font-family:'Courier New',monospace;font-size:8pt;color:#6b7280;">{{ f.tool_used or "—" }}</td>
+        <td style="font-size:8pt;color:{% if f.confidence == 'confirmed' %}#15803d{% else %}#6b7280{% endif %};">{{ f.confidence or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 4 DETAILED FINDINGS -->
+<div class="pb">
+  <h1 class="s"><span class="n">4</span>Detailed Findings</h1>
+</div>
+
+{% set cls_map = {"Critical":"cr","High":"hi","Medium":"me","Low":"lo"} %}
+{% for sev in ["Critical","High","Medium","Low"] %}
+{% set sf = findings | selectattr("severity","equalto",sev) | list %}
+{% if sf %}
+<div style="margin-bottom:5mm;">
+  <h2 class="ss" style="border-bottom:1.5pt solid #e5e7eb;padding-bottom:2.5pt;">{{ sev }} — {{ sf|length }} finding{{ "s" if sf|length != 1 }}</h2>
+</div>
+{% for f in sf %}
+{% set cls = cls_map.get(f.severity, "lo") %}
+<div class="finding">
+  <div class="finding-hdr-table">
+    <div class="finding-hdr-row">
+      <div class="finding-sev-bar-cell"><div class="finding-sev-bar {{ cls }}"></div></div>
+      <div class="finding-hdr-content"><div class="finding-title">{{ f.title }}</div></div>
+      <div class="finding-hdr-right">
+        <span class="bdg bdg-{{ cls }}">{{ f.severity }}</span>&nbsp;
+        <span class="finding-cvss {{ cls }}">{{ "%.1f" % f.cvss_score }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="finding-body">
+    <table class="meta-table">
+      <tr><td class="meta-key">OWASP</td><td><span class="owtag">{{ f.owasp_id or '—' }}</span>&nbsp;&nbsp;<span style="color:#374151;font-size:8.5pt;">{{ f.owasp_label or '' }}</span></td></tr>
+      <tr><td class="meta-key">Vector</td>    <td style="font-family:'Courier New',monospace;font-size:7.5pt;color:#4b5563;word-break:break-all;">{{ f.cvss_vector or "—" }}</td></tr>
+      <tr><td class="meta-key">Endpoint</td>  <td style="font-family:'Courier New',monospace;font-size:7.5pt;word-break:break-all;">{{ f.endpoint or "—" }}</td></tr>
+      <tr><td class="meta-key">Tool</td>      <td style="font-family:'Courier New',monospace;font-size:8pt;">{{ f.tool_used or "—" }}</td></tr>
+      <tr><td class="meta-key">Confidence</td><td style="color:{% if f.confidence=='confirmed' %}#15803d;font-weight:600{% else %}#6b7280{% endif %};">{{ f.confidence or "—" }}</td></tr>
+    </table>
+    <div class="field-ttl">Description</div>
+    <p style="font-size:8.5pt;color:#374151;line-height:1.55;">{{ f.description or '' }}</p>
+    {% if f.evidence %}
+    <div class="field-ttl">Evidence</div>
+    <div class="evidence">{{ f.evidence[:600] }}</div>
+    {% endif %}
+    {% if f.remediation %}
+    <div class="field-ttl">Remediation</div>
+    <div class="remed">{{ f.remediation }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+<!-- 5 OWASP COVERAGE -->
+<div class="pb">
+  <h1 class="s"><span class="n">5</span>OWASP Top 10:2025 Coverage</h1>
+  <table class="tbl">
+    <thead><tr><th style="width:44pt;">ID</th><th>Category</th><th style="width:52pt;text-align:center;">Findings</th><th style="width:58pt;text-align:center;">Max Severity</th></tr></thead>
+    <tbody>
+      {% for oid,olabel in [("A01","Broken Access Control"),("A02","Cryptographic Failures"),("A03","Injection"),("A04","Insecure Design"),("A05","Security Misconfiguration"),("A06","Vulnerable and Outdated Components"),("A07","Identification and Authentication Failures"),("A08","Software and Data Integrity Failures"),("A09","Security Logging and Monitoring Failures"),("A10","Server-Side Request Forgery")] %}
+      {% set cf = findings | selectattr("owasp_id","equalto",oid) | list %}
+      {% set cm = {"Critical":"cr","High":"hi","Medium":"me","Low":"lo"} %}
+      <tr>
+        <td><span class="owtag">{{ oid }}</span></td>
+        <td style="font-size:8.5pt;">{{ olabel }}</td>
+        <td style="text-align:center;font-weight:{% if cf|length>0 %}700{% else %}400{% endif %};color:{% if cf|length>0 %}#111827{% else %}#9ca3af{% endif %};">{{ cf|length }}</td>
+        <td style="text-align:center;">
+          {% if cf|length > 0 %}{% set top = cf | sort(attribute="cvss_score",reverse=True) | first %}<span class="bdg bdg-{{ cm.get(top.severity,'lo') }}">{{ top.severity }}</span>
+          {% else %}<span style="color:#9ca3af;font-size:8pt;">—</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 6 DISCLAIMER -->
+<div style="margin-top:8mm;">
+  <h1 class="s"><span class="n">6</span>Disclaimer</h1>
+  <div class="info-box">
+    This report was generated by SecuriScan, an automated web application security assessment platform
+    developed by ADVANCIA IT SYSTEM. Findings reflect the state of the target at the time of testing.<br><br>
+    Automated scanning may not identify all vulnerabilities, particularly business logic flaws and
+    vulnerabilities requiring authenticated access. This report complements, but does not replace,
+    manual penetration testing by qualified security professionals.<br><br>
+    All testing was performed with explicit authorization. ADVANCIA IT SYSTEM disclaims liability
+    for actions taken based on this report.
+  </div>
+</div>
+
+</body>
+</html>
